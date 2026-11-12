@@ -1,11 +1,11 @@
 {
-    "name": "Product Catalog",
-    "short_name": "Product Catalog",
+    "name": "Circuit",
+    "short_name": "Circuit",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A simple product catalog.",
+    "description": "An electronics catalog.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

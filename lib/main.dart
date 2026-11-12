@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'product.dart';
 import 'product_api.dart';
 import 'product_bloc.dart';
+import 'product_widgets.dart';
 
 void main() {
   runApp(const CatalogApp());
@@ -14,10 +15,16 @@ class CatalogApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ThemeData(
+      colorSchemeSeed: const Color(0xFF155BE8),
+      scaffoldBackgroundColor: const Color(0xFFF4F6FB),
+      fontFamily: 'Roboto',
+    );
+
     return MaterialApp(
-      title: 'Product Catalog',
+      title: 'Circuit',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.indigo, fontFamily: 'Roboto'),
+      theme: theme,
       home: BlocProvider(
         create: (_) => ProductBloc(ProductApi())..add(LoadProducts()),
         child: const CatalogPage(),
@@ -31,8 +38,25 @@ class CatalogPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<ProductBloc>();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Product Catalog')),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        title: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1120),
+            child: const Row(
+              children: [
+                Icon(Icons.memory_rounded, color: Color(0xFF155BE8), size: 30),
+                SizedBox(width: 8),
+                Text('Circuit', style: TextStyle(fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: BlocBuilder<ProductBloc, ProductState>(
         builder: (context, state) {
           if (state.status == ProductStatus.loading) {
@@ -47,9 +71,7 @@ class CatalogPage extends StatelessWidget {
                   const Text('Could not load products'),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () {
-                      context.read<ProductBloc>().add(LoadProducts());
-                    },
+                    onPressed: () => bloc.add(LoadProducts()),
                     child: const Text('Try again'),
                   ),
                 ],
@@ -57,98 +79,110 @@ class CatalogPage extends StatelessWidget {
             );
           }
 
-          if (state.products.isEmpty) {
-            return const Center(child: Text('No products'));
-          }
+          final products = state.visibleProducts;
 
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: state.products.length,
-                itemBuilder: (context, index) {
-                  final product = state.products[index];
-                  return Card(
-                    child: ListTile(
-                      leading: ProductImage(url: product.thumbnail, size: 48),
-                      title: Text(product.title),
-                      subtitle: Text(
-                        '\$${product.salePrice.toStringAsFixed(2)}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ProductPage(product: product),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final textScaler = MediaQuery.textScalerOf(context);
+              final columns = switch (constraints.maxWidth) {
+                >= 1160 => 5,
+                >= 1080 => 4,
+                >= 740 => 3,
+                >= 360 when textScaler.scale(16) <= 22 => 2,
+                _ => 1,
+              };
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 36),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1120),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CatalogHero(product: products.firstOrNull),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            for (final category in ProductCategory.values)
+                              ChoiceChip(
+                                label: Text(category.label),
+                                labelPadding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                selected: category == state.category,
+                                showCheckmark: false,
+                                selectedColor: const Color(0xFFD8E6FF),
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    bloc.add(SelectCategory(category));
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              '${products.length} ${products.length == 1 ? 'product' : 'products'}',
+                              style: const TextStyle(color: Color(0xFF485773)),
+                            ),
+                            DropdownButtonHideUnderline(
+                              child: DropdownButton<ProductSort>(
+                                value: state.sort,
+                                onChanged: (sort) {
+                                  if (sort != null) bloc.add(SelectSort(sort));
+                                },
+                                items: [
+                                  for (final sort in ProductSort.values)
+                                    DropdownMenuItem(
+                                      value: sort,
+                                      child: Text(sort.label),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (products.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(
+                              child: Text('No products in this category'),
+                            ),
+                          )
+                        else
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: products.length,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  mainAxisExtent: 204 + textScaler.scale(96),
+                                ),
+                            itemBuilder:
+                                (context, index) =>
+                                    ProductCard(product: products[index]),
                           ),
-                        );
-                      },
+                      ],
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+                ),
+              );
+            },
           );
         },
-      ),
-    );
-  }
-}
-
-class ProductPage extends StatelessWidget {
-  final Product product;
-
-  const ProductPage({super.key, required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Product details')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Center(child: ProductImage(url: product.thumbnail, size: 220)),
-              const SizedBox(height: 16),
-              Text(product.title, style: textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text(
-                '\$${product.salePrice.toStringAsFixed(2)}',
-                style: textTheme.titleLarge,
-              ),
-              if (product.discount > 0)
-                Text('Discount: ${product.discount.toStringAsFixed(1)}%'),
-              Text('Rating: ${product.rating.toStringAsFixed(1)} / 5'),
-              Text('In stock: ${product.stock}'),
-              const SizedBox(height: 16),
-              Text(product.description),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ProductImage extends StatelessWidget {
-  final String url;
-  final double size;
-
-  const ProductImage({super.key, required this.url, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: size,
-      child: Image.network(
-        url,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
       ),
     );
   }

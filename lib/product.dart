@@ -1,4 +1,17 @@
+enum ProductCategory {
+  laptops('laptops', 'Laptops'),
+  phones('smartphones', 'Phones'),
+  tablets('tablets', 'Tablets'),
+  accessories('mobile-accessories', 'Accessories');
+
+  final String key;
+  final String label;
+
+  const ProductCategory(this.key, this.label);
+}
+
 class Product {
+  final ProductCategory category;
   final String title;
   final String description;
   final String thumbnail;
@@ -8,6 +21,7 @@ class Product {
   final int stock;
 
   const Product({
+    required this.category,
     required this.title,
     required this.description,
     required this.thumbnail,
@@ -17,8 +31,12 @@ class Product {
     required this.stock,
   });
 
-  factory Product.fromJson(Map<String, dynamic> json) {
+  factory Product.fromJson(
+    Map<String, dynamic> json,
+    ProductCategory category,
+  ) {
     return Product(
+      category: category,
       title: json['title'] as String,
       description: json['description'] as String,
       thumbnail: json['thumbnail'] as String,
